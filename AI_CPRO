@@ -1,0 +1,68 @@
+import streamlit as st
+from google import genai
+from google.genai import types
+
+# 1. Configuration de la page Streamlit
+st.set_page_config(page_title="Assistant Pédagogique MELEC", page_icon="⚡", layout="centered")
+
+st.title("⚡ Assistant Suivi Pédagogique — Bac Pro MELEC")
+st.write("Saisissez vos observations brutes pour générer une appréciation de bulletin structurée.")
+
+# 2. Configuration de l'API Gemini
+# Remplir le champ dans l'interface ou configurer la clé
+api_key = st.sidebar.text_input("Clé API Gemini", type="password")
+
+# On vérifie si la clé est renseignée avant de configurer le client
+if api_key:
+    client = genai.Client(api_key=api_key)
+else:
+    st.sidebar.warning("Veuillez saisir votre clé API Gemini pour activer l'assistant.")
+
+# 3. Formulaire de saisie pour l'enseignant
+nom_eleve = st.text_input("Nom de l'élève :", placeholder="Ex: Mattéo L.")
+observations = st.text_area(
+    "Observations en texte libre (compétences, comportement, TP...) :",
+    placeholder="Ex: Mattéo a bien réalisé le câblage de l'armoire industrielle aujourd'hui. Autonome sur la pose des goulottes. Cependant, il a encore oublié de faire les tests de continuité hors tension avant la mise en service. Attitude sérieuse.",
+    height=150
+)
+
+# 4. Logique de génération de l'appréciation
+if st.button("Générer l'appréciation 🚀"):
+    if not api_key:
+        st.error("Impossible de générer l'appréciation sans clé API.")
+    elif not nom_eleve or not observations:
+        st.warning("Veuillez renseigner le nom de l'élève et vos observations.")
+    else:
+        with st.spinner("Analyse des compétences en cours par l'IA..."):
+            try:
+                # Construction du prompt pédagogique
+                prompt_pedagogique = f"""
+                Tu es un enseignant expert en Bac Pro MELEC (Métiers de l'Électricité et de ses Environnements Connectés).
+                Ton rôle est de transformer des notes d'observations brutes en une appréciation de bulletin scolaire officielle, constructive et professionnelle.
+                
+                Voici les notes concernant l'élève {nom_eleve} :
+                "{observations}"
+                
+                Rédige une appréciation au format Markdown contenant obligatoirement :
+                1. **Compétences MELEC identifiées** : Ce qui est Acquis ou En cours d'acquisition (en faisant le lien si possible avec les pôles du référentiel comme la Réalisation, la Mise en service ou la Maintenance).
+                2. **Points forts & Axes de progrès** : Ce qui va bien et ce qui doit être corrigé (notamment sur la sécurité électrique, l'habilitation, la rigueur).
+                3. **Appréciation Synthétique** : Une phrase ou deux de conclusion adaptées pour le bulletin trimestriel.
+                
+                Garde un ton bienveillant, professionnel et axé sur la progression de l'élève.
+                """
+
+                # Appel au modèle Gemini (gemini-2.5-flash est rapide et idéal pour le texte)
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt_pedagogique,
+                )
+                
+                # 5. Affichage du résultat
+                st.success("Appréciation générée avec succès !")
+                st.write("---")
+                st.subheader(f"Bilan pédagogique : {nom_eleve}")
+                st.markdown(response.text)
+                st.write("---")
+                
+            except Exception as e:
+                st.error(f"Une erreur est survenue lors de l'appel à l'IA : {e}")
